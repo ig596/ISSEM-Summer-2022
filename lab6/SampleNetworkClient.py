@@ -1,15 +1,17 @@
 import configparser
 import hashlib
 
+import cryptography.fernet
+
+
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 import math
 import socket
 
-
 class SimpleNetworkClient :
-    def __init__(self, port1, port2,password) :
+    def __init__(self, port1, port2,password, key) :
         self.fig, self.ax = plt.subplots()
         now = time.time()
         self.lastTime = now
@@ -24,6 +26,7 @@ class SimpleNetworkClient :
         self.infPort = port1
         self.incPort = port2
         self.password=password
+        self.crypto=cryptography.fernet.Fernet(key=key)
         self.infToken = None
         self.incToken = None
 
@@ -43,15 +46,20 @@ class SimpleNetworkClient :
 
     def getTemperatureFromPort(self, p, tok) :
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(b"%s;GET_TEMP" % tok, ("127.0.0.1", p))
+        s.sendto(self.crypto.encrypt("%s;GET_TEMP" % tok), ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
-        m = msg.decode("utf-8")
+        m = self.crypto.decrypt(msg).decode("utf-8")
         return (float(m))
 
     def authenticate(self, p, pw) :
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(b"AUTH %s" % pw, ("127.0.0.1", p))
+        msg=self.crypto.encrypt(b"AUTH %s" % pw)
+        print(msg)
+        s.sendto(msg, ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
+        print(msg)
+        msg=self.crypto.decrypt(msg)
+        print(msg)
         return msg.strip()
 
     def updateInfTemp(self, frame) :
@@ -78,7 +86,8 @@ class SimpleNetworkClient :
 parser= configparser.ConfigParser(strict=False, interpolation=None)
 parser.read(filenames='config.ini')
 password=parser['configs']["PASSWORD"]
-snc = SimpleNetworkClient(23456, 23457,password)
+key=parser['configs']['key']
+snc = SimpleNetworkClient(23456, 23457,password,key)
 
 plt.grid()
 plt.show()

@@ -17,3 +17,9 @@ Also switched to transmitting the  sha256 Hash of the password not the password.
 ## Vuln 2 Token List Limit
 Updated Token Creation process to first check if there are already ten tokens and if so tell Client to logout an existing token.
 - SampleNetworkServer.py Lines 67-93
+
+## Vuln 3 Plaintext Token and Auth process
+Added Fernet Encryption to transit using key shared in config.ini file similar to password. 
+Changes were made to encrypt/decrypt all messages sent and received.
+- SampleNetworkClient.py 
+- SampleNetworkServer.py

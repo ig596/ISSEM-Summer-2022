@@ -45,8 +45,9 @@ class SimpleNetworkClient :
             plt.title(time.strftime("%A, %Y-%m-%d", time.localtime(now)))
 
     def getTemperatureFromPort(self, p, tok) :
+        print("token:", tok)
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        s.sendto(self.crypto.encrypt("%s;GET_TEMP" % tok), ("127.0.0.1", p))
+        s.sendto(self.crypto.encrypt(("%s;GET_TEMP" % tok).encode('utf-8')), ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
         m = self.crypto.decrypt(msg).decode("utf-8")
         return (float(m))
@@ -54,18 +55,18 @@ class SimpleNetworkClient :
     def authenticate(self, p, pw) :
         s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         msg=self.crypto.encrypt(b"AUTH %s" % pw)
-        print(msg)
+        # print(msg)
         s.sendto(msg, ("127.0.0.1", p))
         msg, addr = s.recvfrom(1024)
-        print(msg)
+        # print(msg)
         msg=self.crypto.decrypt(msg)
-        print(msg)
-        return msg.strip()
+        # print(msg)
+        return msg.decode("utf-8").strip()
 
     def updateInfTemp(self, frame) :
         self.updateTime()
         if self.infToken is None : #not yet authenticated
-            self.infToken = self.authenticate(self.infPort, bytes(self.password))
+            self.infToken = self.authenticate(self.infPort, hashlib.sha256(self.password.encode("utf-8")).hexdigest().encode("utf-8"))
 
         self.infTemps.append(self.getTemperatureFromPort(self.infPort, self.infToken)-273)
         #self.infTemps.append(self.infTemps[-1] + 1)
@@ -76,7 +77,7 @@ class SimpleNetworkClient :
     def updateIncTemp(self, frame) :
         self.updateTime()
         if self.incToken is None : #not yet authenticated
-            self.incToken = self.authenticate(self.incPort, bytes(hashlib.sha256(bytes(self.password,"utf-8"),"utf-8")))
+            self.incToken = self.authenticate(self.incPort, hashlib.sha256(self.password.encode("utf-8")).hexdigest().encode("utf-8"))
 
         self.incTemps.append(self.getTemperatureFromPort(self.incPort, self.incToken)-273)
         #self.incTemps.append(self.incTemps[-1] + 1)
@@ -87,7 +88,7 @@ parser= configparser.ConfigParser(strict=False, interpolation=None)
 parser.read(filenames='config.ini')
 password=parser['configs']["PASSWORD"]
 key=parser['configs']['key']
-snc = SimpleNetworkClient(23456, 23457,password,key)
+snc = SimpleNetworkClient(23459, 23457,password,key)
 
 plt.grid()
 plt.show()

@@ -30,14 +30,17 @@ class SmartNetworkThermometer(threading.Thread):
         self.updateTemperature()
         self.tokens = []
         self.crypto = cryptography.fernet.Fernet(key=key)
-        self.hashed_password = hashlib.sha256(bytes(password, "utf-8"))  # store hashed password
-        self.serverSocket = socket.create_server(address=("127.0.0.1", port), reuse_port=True, family=socket.AF_INET)
+        self.hashed_password = hashlib.sha256(bytes(password, "utf-8")).hexdigest()  # store hashed password
+        #print(self.hashed_password)
+        #self.serverSocket = socket.create_server(address=("127.0.0.1", port), reuse_port=True, family=socket.AF_INET)
+        self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.serverSocket.bind(("127.0.0.1", port))
         fcntl.fcntl(self.serverSocket, fcntl.F_SETFL, os.O_NONBLOCK)
 
         self.deg = "K"
 
     def setPassword(self, password):
-        self.hashed_password = hashlib.sha256(password)
+        self.hashed_password = hashlib.sha256(password).hexdigest()
 
     def setSource(self, source):
         self.source = source
@@ -75,7 +78,7 @@ class SmartNetworkThermometer(threading.Thread):
                             self.serverSocket.sendto(msg, addr)
                         else:
                             self.tokens.append(secrets.token_urlsafe(16))
-                            self.serverSocket.sendto(self.token.encrypt(self.tokens[-1]), addr)
+                            self.serverSocket.sendto(self.crypto.encrypt(self.tokens[-1].encode('utf-8')), addr)
                         # print (self.tokens[-1])
                 elif cs[0] == "LOGOUT":
                     if cs[1] in self.tokens:
@@ -102,7 +105,7 @@ class SmartNetworkThermometer(threading.Thread):
         while True:
             try:
                 msg, addr = self.serverSocket.recvfrom(1024)
-                print(f"Encrypted MSG: {msg}")
+                #print(f"Encrypted MSG: {msg}")
                 msg = self.crypto.decrypt(msg)
                 msg = msg.decode("utf-8").strip()
                 cmds = msg.split(' ')
